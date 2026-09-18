@@ -1,0 +1,121 @@
+// ============================================================
+// Seasonal Environmental Data Extraction for Nigerian States
+// ============================================================
+// Description: Extracts seasonal mean NDVI, LST, Precipitation,
+//              and Temperature for Nigerian states (2000-2023)
+// Seasons:     DJF (Jan-Mar), MAM (Mar-Jun),
+//              JJA (Jun-Sep), SON (Sep-Dec)
+// Data Sources:
+//   - NDVI:          MODIS/061/MOD13Q1
+//   - LST:           MODIS/061/MOD11A2
+//   - Precipitation: UCSB-CHG/CHIRPS/DAILY
+//   - Temperature:   ECMWF/ERA5_LAND/MONTHLY_AGGR
+// Boundary Source:  FAO/GAUL/2015/level1
+// ============================================================
+
+// ---------- 1. Define Nigeria State Boundaries ----------
+var nigeria = ee.FeatureCollection('FAO/GAUL/2015/level1')
+    .filter(ee.Filter.eq('ADM0_NAME', 'Nigeria'));
+
+print('Number of Nigerian states:', nigeria.size());
+
+// ---------- 2. Define Time Range ----------
+var years = ee.List.sequence(2000, 2023);
+
+// ---------- 3. Define Seasons (Start and End Months) ----------
+var seasons = ee.List([
+  {name: 'DJF', startMonth: 1,  endMonth: 3},   // January - March  (Winter)
+  {name: 'MAM', startMonth: 3,  endMonth: 6},   // March - June     (Spring)
+  {name: 'JJA', startMonth: 6,  endMonth: 9},   // June - September (Summer)
+  {name: 'SON', startMonth: 9,  endMonth: 12}   // September - December (Autumn)
+]);
+
+// ---------- 4. Function: Extract Seasonal Data ----------
+var extractSeasonalData = function(year) {
+  year = ee.Number(year).toInt();
+
+  var results = seasons.map(function(season) {
+    season = ee.Dictionary(season);
+    var seasonName = season.get('name');
+    var startMonth = ee.Number(season.get('startMonth'));
+    var endMonth   = ee.Number(season.get('endMonth'));
+
+    // Define start and end dates (within the same year)
+    var startDate = ee.Date.fromYMD(year, startMonth, 1);
+    var endDate   = ee.Date.fromYMD(year, endMonth, 1);
+
+    // If the end month is December, extend to end of December
+    if (endMonth.eq(12)) {
+      endDate = ee.Date.fromYMD(year, 12, 31);
+    }
+
+    // ---------- NDVI ----------
+    var ndvi = ee.ImageCollection('MODIS/061/MOD13Q1')
+      .filterDate(startDate, endDate)
+      .select('NDVI')
+      .mean()
+      .multiply(0.0001)
+      .rename('NDVI');
+
+    // ---------- LST ----------
+    var lst = ee.ImageCollection('MODIS/061/MOD11A2')
+      .filterDate(startDate, endDate)
+      .select('LST_Day_1km')
+      .mean()
+      .multiply(0.02)
+      .rename('LST');
+
+    // ---------- Precipitation ----------
+    var precip = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+      .filterDate(startDate, endDate)
+      .select('precipitation')
+      .sum()
+      .rename('Precipitation');
+
+    // ---------- Air Temperature ----------
+    var temp = ee.ImageCollection('ECMWF/ERA5_LAND/MONTHLY_AGGR')
+      .filterDate(startDate, endDate)
+      .select('temperature_2m')
+      .mean()
+      .subtract(273.15)
+      .rename('Temperature');
+
+    // Combine all bands into a single image
+    var combinedImage = ee.Image.cat([ndvi, lst, precip, temp]);
+
+    // Reduce to state-level averages
+    var reduced = combinedImage.reduceRegions({
+      collection: nigeria,
+      reducer: ee.Reducer.mean(),
+      scale: 5000
+    });
+
+    // Attach season and year metadata to each feature
+    return reduced.map(function(feature) {
+      return feature.set({
+        'year': year,
+        'season': seasonName
+      });
+    });
+  });
+
+  return ee.FeatureCollection(results).flatten();
+};
+
+// ---------- 5. Apply Function Across All Years ----------
+var allData = ee.FeatureCollection(years.map(extractSeasonalData)).flatten();
+
+print('Total number of records:', allData.size());
+print('Sample data:', allData.limit(3));
+
+// ---------- 6. Export to Google Drive ----------
+Export.table.toDrive({
+  collection: allData,
+  description: 'Nigeria_Seasonal_Data',
+  folder: 'GEE_Exports',
+  fileFormat: 'CSV',
+  selectors: ['ADM0_NAME', 'ADM1_NAME', 'year', 'season',
+              'NDVI', 'LST', 'Precipitation', 'Temperature']
+});
+
+print('✅ Script is ready. Click Run, then download the file from the Tasks tab.');
