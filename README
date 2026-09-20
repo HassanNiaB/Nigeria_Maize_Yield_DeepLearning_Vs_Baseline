@@ -6,31 +6,64 @@ Project Overview
 
 This project evaluates whether deep learning models can outperform simple and conventional machine-learning baselines for maize yield forecasting in Nigeria (2000–2023).
 
+The study is designed as an ablation benchmark with two experimental versions. Version A uses state-aware models without lagged target features. Version B adds lagged target features (value_lag1, value_lag2). This setup allows us to isolate the effect of (i) state identity and (ii) lagged target information on model performance.
+
 Models Evaluated
 
-Persistence Baseline
-Random Forest
-LSTM
-GRU
-Bi-LSTM + Attention
-Temporal Convolutional Network (TCN)
-Deep Learning Ensemble
+Persistence Baseline (naive forecast, state-aware), Random Forest (state-aware, hyperparameter-tuned), LSTM, GRU, Bi-LSTM + Attention, Temporal Convolutional Network (TCN), and a Deep Learning Ensemble (average of DL predictions).
+
+All models are trained with walk-forward validation and hyperparameter tuning (random search over 5 trials for DL models, 8 trials for Random Forest). Early stopping is performed on a held-out validation set (last 2 years per state), and the test set is the last 3 years per state.
 
 Data
 
-The project uses HarvestStat Africa subnational maize yield statistics together with environmental predictors, including:
-NDVI
-Land Surface Temperature (LST)
-Precipitation
-Temperature
+The project uses HarvestStat Africa subnational maize yield statistics together with environmental predictors, including NDVI, Land Surface Temperature (LST), Precipitation, Temperature, cyclical year encodings (year_sin, year_cos), and the state identifier (admin_1, one-hot encoded). Version B additionally includes lagged target features (value_lag1, value_lag2).
 
-Key Result
+Key Results
 
-The Persistence baseline achieved the highest predictive performance, with:
-R² = 0.73
-It outperformed all tested machine-learning and deep-learning models on the held-out test data.
-This result demonstrates the importance of evaluating complex forecasting models against strong and simple baselines, particularly when working with limited temporal data.
-Technologies: Python(Pandas / NumPy / Scikit-learn / PyTorch / GeoPandas / Matplotlib)
+Version A — State-aware, without lag features
+
+Persistence Baseline achieved R² = 0.7319, MAE = 0.155, RMSE = 0.232, MAPE = 7.10%.
+
+Random Forest (tuned) achieved R² = 0.5149, MAE = 0.241, RMSE = 0.312, MAPE = 10.96%.
+
+GRU (tuned) achieved R² = -0.0151, MAE = 0.363, RMSE = 0.452, MAPE = 17.17%.
+
+LSTM (tuned) achieved R² = -0.0352, MAE = 0.364, RMSE = 0.456, MAPE = 16.55%.
+
+Ensemble (DL avg) achieved R² = -0.2139, MAE = 0.399, RMSE = 0.494, MAPE = 17.97%.
+
+Bi-LSTM + Attention (tuned) achieved R² = -0.2158, MAE = 0.401, RMSE = 0.495, MAPE = 18.02%.
+
+TCN (tuned) achieved R² = -0.8563, MAE = 0.499, RMSE = 0.611, MAPE = 21.89%.
+
+Version B — State-aware, with lag features
+
+Persistence Baseline achieved R² = 0.7319, MAE = 0.155, RMSE = 0.232, MAPE = 7.10%.
+
+Random Forest (tuned) achieved R² = 0.5793, MAE = 0.226, RMSE = 0.291, MAPE = 10.80%.
+
+Bi-LSTM + Attention (tuned) achieved R² = 0.5343, MAE = 0.232, RMSE = 0.306, MAPE = 11.87%.
+
+LSTM (tuned) achieved R² = 0.4078, MAE = 0.271, RMSE = 0.345, MAPE = 14.53%.
+
+Ensemble (DL avg) achieved R² = 0.3670, MAE = 0.279, RMSE = 0.357, MAPE = 13.33%.
+
+GRU (tuned) achieved R² = 0.2516, MAE = 0.303, RMSE = 0.388, MAPE = 14.68%.
+
+TCN (tuned) achieved R² = -0.5919, MAE = 0.468, RMSE = 0.566, MAPE = 20.48%.
+
+Main Findings
+
+1. State identity is essential.
+Without state information, all deep-learning models and Random Forest produced negative R². Adding one-hot state encoding raised Random Forest from R² = -0.17 to R² = +0.51.
+
+2. Lagged target features are the missing link.
+Adding value_lag1 and value_lag2 lifted every deep-learning model from negative to positive R². Bi-LSTM + Attention improved from R² = -0.22 to R² = +0.53.
+
+3. The Persistence baseline remains the strongest model in both versions, with R² = 0.73. This result demonstrates the importance of evaluating complex forecasting models against strong and simple baselines, particularly when working with limited annual data and high autocorrelation.
+
+4. Complexity does not guarantee accuracy.
+Despite hyperparameter tuning, walk-forward validation, and state encoding, deep-learning models did not outperform a well-designed naive baseline.
 
 Data Citation
 
