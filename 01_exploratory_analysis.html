@@ -3,7 +3,7 @@
 <html lang="en">
 <head><meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>01_exploratory_analysis</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>02_exploratory_analysis</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 <style type="text/css">
     pre { line-height: 125%; }
 td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
@@ -7795,33 +7795,27 @@ a.anchor-link {
 </style>
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
-<main><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=e32e0122-7c42-4452-8f40-e0403de8019b">
+<main><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=1b01579d-1d6c-4027-a327-b1fd648a9c9c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [1]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="sd">"""</span>
 <span class="sd">Maize Yield Forecasting in Nigeria</span>
-<span class="sd">Deep Learning Pipeline with Walk-Forward Validation</span>
-
-<span class="sd">Author: [Your Name]</span>
-<span class="sd">License: MIT</span>
+<span class="sd">Version B: State-aware + Tuned + Lagged Target Features</span>
 <span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">seaborn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sns</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">StandardScaler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">StandardScaler</span><span class="p">,</span> <span class="n">OneHotEncoder</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">r2_score</span><span class="p">,</span> <span class="n">mean_absolute_error</span><span class="p">,</span> <span class="n">mean_squared_error</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.ensemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomForestRegressor</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
 
 <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">'ignore'</span><span class="p">)</span>
 
@@ -7829,303 +7823,400 @@ a.anchor-link {
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">DataLoader</span>
 
+
 <span class="c1"># ==========================================================</span>
-<span class="c1"># Configuration</span>
+<span class="c1"># Config</span>
 <span class="c1"># ==========================================================</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Config</span><span class="p">:</span>
     <span class="n">SEED</span> <span class="o">=</span> <span class="mi">42</span>
     <span class="n">SEQ_LENGTH</span> <span class="o">=</span> <span class="mi">5</span>
     <span class="n">PRED_LENGTH</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">32</span>
-    <span class="n">EPOCHS</span> <span class="o">=</span> <span class="mi">150</span>
-    <span class="n">LEARNING_RATE</span> <span class="o">=</span> <span class="mf">1e-3</span>
-    <span class="n">PATIENCE</span> <span class="o">=</span> <span class="mi">20</span>
-    
+    <span class="n">EPOCHS</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="n">PATIENCE</span> <span class="o">=</span> <span class="mi">15</span>
+    <span class="n">N_TRIALS_DL</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">N_TRIALS_RF</span> <span class="o">=</span> <span class="mi">8</span>
+
     <span class="n">FEATURE_COLS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'LST'</span><span class="p">,</span> <span class="s1">'NDVI'</span><span class="p">,</span> <span class="s1">'Precipitation'</span><span class="p">,</span> <span class="s1">'Temperature'</span><span class="p">,</span>
                     <span class="s1">'year_sin'</span><span class="p">,</span> <span class="s1">'year_cos'</span><span class="p">]</span>
+    <span class="n">LAG_COLS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'value_lag1'</span><span class="p">,</span> <span class="s1">'value_lag2'</span><span class="p">]</span>
+    <span class="n">ALL_FEATURES</span> <span class="o">=</span> <span class="n">FEATURE_COLS</span> <span class="o">+</span> <span class="n">LAG_COLS</span>
+
     <span class="n">TARGET_COL</span> <span class="o">=</span> <span class="s1">'value'</span>
     <span class="n">STATE_COL</span> <span class="o">=</span> <span class="s1">'admin_1'</span>
-    
+
+    <span class="n">VAL_YEARS</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">TEST_YEARS</span> <span class="o">=</span> <span class="mi">3</span>
+
     <span class="n">DEVICE</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">'cuda'</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s1">'cpu'</span><span class="p">)</span>
+
 
 <span class="k">def</span><span class="w"> </span><span class="nf">set_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">):</span>
     <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
     <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">manual_seed_all</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
 
 <span class="n">set_seed</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">SEED</span><span class="p">)</span>
-<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s1">'results/plots'</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s1">'results'</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s1">'models'</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
 <span class="c1"># ==========================================================</span>
-<span class="c1"># Data Preparation</span>
+<span class="c1"># Data preparation</span>
 <span class="c1"># ==========================================================</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_sequences</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">,</span> <span class="n">target_col</span><span class="p">,</span> <span class="n">state_col</span><span class="p">,</span> 
-                     <span class="n">seq_len</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">pred_len</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Create sliding window sequences per state."""</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_lag_features</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">target_col</span><span class="p">,</span> <span class="n">state_col</span><span class="p">,</span> <span class="n">lags</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)):</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="n">state_col</span><span class="p">,</span> <span class="s1">'year'</span><span class="p">])</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">lag</span> <span class="ow">in</span> <span class="n">lags</span><span class="p">:</span>
+        <span class="n">df</span><span class="p">[</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">target_col</span><span class="si">}</span><span class="s1">_lag</span><span class="si">{</span><span class="n">lag</span><span class="si">}</span><span class="s1">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">state_col</span><span class="p">)[</span><span class="n">target_col</span><span class="p">]</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="n">lag</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">target_col</span><span class="si">}</span><span class="s1">_lag</span><span class="si">{</span><span class="n">l</span><span class="si">}</span><span class="s1">'</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">lags</span><span class="p">])</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">create_sequences</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">feature_cols</span><span class="p">,</span> <span class="n">target_col</span><span class="p">,</span> <span class="n">state_col</span><span class="p">,</span> <span class="n">seq_len</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">pred_len</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
     <span class="n">X_list</span><span class="p">,</span> <span class="n">y_list</span><span class="p">,</span> <span class="n">state_list</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
-    
     <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="n">state_col</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
         <span class="n">sdf</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">state_col</span><span class="p">]</span> <span class="o">==</span> <span class="n">state</span><span class="p">]</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">'year'</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sdf</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">seq_len</span> <span class="o">+</span> <span class="n">pred_len</span><span class="p">:</span>
             <span class="k">continue</span>
-        
         <span class="n">features</span> <span class="o">=</span> <span class="n">sdf</span><span class="p">[</span><span class="n">feature_cols</span> <span class="o">+</span> <span class="p">[</span><span class="n">target_col</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sdf</span><span class="p">)</span> <span class="o">-</span> <span class="n">seq_len</span> <span class="o">-</span> <span class="n">pred_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">X_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">seq_len</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-            <span class="n">y_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="n">seq_len</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">X_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">y_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">features</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
             <span class="n">state_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
-    
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">X_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">state_list</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">walk_forward_split</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">test_years</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Per-state walk-forward split."""</span>
-    <span class="n">train_idx</span><span class="p">,</span> <span class="n">test_idx</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">walk_forward_split_3way</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">val_years</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">test_years</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+    <span class="n">train_idx</span><span class="p">,</span> <span class="n">val_idx</span><span class="p">,</span> <span class="n">test_idx</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">states</span><span class="p">):</span>
         <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">states</span> <span class="o">==</span> <span class="n">state</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">test_years</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">val_years</span> <span class="o">+</span> <span class="n">test_years</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">test_idx</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">idx</span><span class="p">[</span><span class="o">-</span><span class="n">test_years</span><span class="p">:])</span>
-        <span class="n">train_idx</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">idx</span><span class="p">[:</span><span class="o">-</span><span class="n">test_years</span><span class="p">])</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train_idx</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_idx</span><span class="p">)</span>
+        <span class="n">val_idx</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">idx</span><span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="n">test_years</span> <span class="o">+</span> <span class="n">val_years</span><span class="p">):</span><span class="o">-</span><span class="n">test_years</span><span class="p">])</span>
+        <span class="n">train_idx</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">idx</span><span class="p">[:</span><span class="o">-</span><span class="p">(</span><span class="n">test_years</span> <span class="o">+</span> <span class="n">val_years</span><span class="p">)])</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train_idx</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val_idx</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_idx</span><span class="p">)</span>
 
 
 <span class="c1"># ==========================================================</span>
 <span class="c1"># Models</span>
 <span class="c1"># ==========================================================</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">LSTMModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lstm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LSTM</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">,</span>
-                            <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span><span class="p">)</span>
+                            <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span> <span class="k">if</span> <span class="n">num_layers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="p">)</span>
-    
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_size</span> <span class="o">+</span> <span class="n">num_states</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">state_oh</span><span class="p">):</span>
         <span class="n">out</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lstm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">out</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">combined</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">out</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">state_oh</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">combined</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">GRUModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gru</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">GRU</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">,</span>
-                          <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span><span class="p">)</span>
+                          <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span> <span class="k">if</span> <span class="n">num_layers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_size</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="p">)</span>
-    
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_size</span> <span class="o">+</span> <span class="n">num_states</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">state_oh</span><span class="p">):</span>
         <span class="n">out</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gru</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">out</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">combined</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">out</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">state_oh</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">combined</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">BiLSTMAttention</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bilstm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LSTM</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">,</span>
-                              <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                              <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                              <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span> <span class="k">if</span> <span class="n">num_layers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                              <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">attention</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_size</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_size</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="p">)</span>
-    
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_size</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">num_states</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">state_oh</span><span class="p">):</span>
         <span class="n">out</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bilstm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">attn</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attention</span><span class="p">(</span><span class="n">out</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">context</span> <span class="o">=</span> <span class="p">(</span><span class="n">out</span> <span class="o">*</span> <span class="n">attn</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">context</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">combined</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">context</span><span class="p">,</span> <span class="n">state_oh</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">combined</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">TCNModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">num_channels</span><span class="o">=</span><span class="p">[</span><span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> 
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">num_channels</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span>
                  <span class="n">kernel_size</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="n">layers</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">in_ch</span> <span class="o">=</span> <span class="n">input_size</span>
         <span class="k">for</span> <span class="n">out_ch</span> <span class="ow">in</span> <span class="n">num_channels</span><span class="p">:</span>
             <span class="n">layers</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
-                <span class="n">nn</span><span class="o">.</span><span class="n">Conv1d</span><span class="p">(</span><span class="n">in_ch</span><span class="p">,</span> <span class="n">out_ch</span><span class="p">,</span> <span class="n">kernel_size</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="n">kernel_size</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
-                <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="n">out_ch</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
-            <span class="p">])</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Conv1d</span><span class="p">(</span><span class="n">in_ch</span><span class="p">,</span> <span class="n">out_ch</span><span class="p">,</span> <span class="n">kernel_size</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="n">kernel_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="n">out_ch</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)])</span>
             <span class="n">in_ch</span> <span class="o">=</span> <span class="n">out_ch</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tcn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">layers</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pool</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">AdaptiveAvgPool1d</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_ch</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-    
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_ch</span> <span class="o">+</span> <span class="n">num_states</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">state_oh</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tcn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pool</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">combined</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">state_oh</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">combined</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">build_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="n">hs</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">'hidden_size'</span><span class="p">]</span>
+    <span class="n">nl</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">'num_layers'</span><span class="p">]</span>
+    <span class="n">dr</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">'dropout'</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">'LSTM'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">LSTMModel</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">hs</span><span class="p">,</span> <span class="n">nl</span><span class="p">,</span> <span class="n">dr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">'GRU'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">GRUModel</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">hs</span><span class="p">,</span> <span class="n">nl</span><span class="p">,</span> <span class="n">dr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">'Bi-LSTM + Attn'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">BiLSTMAttention</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">hs</span><span class="p">,</span> <span class="n">nl</span><span class="p">,</span> <span class="n">dr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">'TCN'</span><span class="p">:</span>
+        <span class="n">ch</span> <span class="o">=</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">hs</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">hs</span><span class="p">,</span> <span class="n">hs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">TCNModel</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">num_channels</span><span class="o">=</span><span class="n">ch</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">dr</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
 
 
 <span class="c1"># ==========================================================</span>
-<span class="c1"># Training</span>
+<span class="c1"># Dataset &amp; training</span>
 <span class="c1"># ==========================================================</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MaizeDataset</span><span class="p">(</span><span class="n">Dataset</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">state_oh</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">FloatTensor</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">FloatTensor</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-    
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_oh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">FloatTensor</span><span class="p">(</span><span class="n">state_oh</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
-    
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_oh</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
-    <span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">)</span>
-    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> 
-                                  <span class="n">lr</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">LEARNING_RATE</span><span class="p">,</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">,</span> <span class="n">epochs</span><span class="p">,</span> <span class="n">patience</span><span class="p">,</span> <span class="n">lr</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">,</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span>
     <span class="n">scheduler</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">lr_scheduler</span><span class="o">.</span><span class="n">ReduceLROnPlateau</span><span class="p">(</span>
         <span class="n">optimizer</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'min'</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
     <span class="n">criterion</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MSELoss</span><span class="p">()</span>
-    
+
     <span class="n">best_val</span><span class="p">,</span> <span class="n">best_state</span><span class="p">,</span> <span class="n">patience_counter</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'inf'</span><span class="p">),</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span>
-    <span class="n">train_losses</span><span class="p">,</span> <span class="n">val_losses</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
-    
-    <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">EPOCHS</span><span class="p">):</span>
-        <span class="c1"># Train</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epochs</span><span class="p">):</span>
         <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
-        <span class="n">train_loss</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">train_loader</span><span class="p">:</span>
-            <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="o">=</span> <span class="n">xb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">),</span> <span class="n">yb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">sb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">train_loader</span><span class="p">:</span>
+            <span class="n">xb</span> <span class="o">=</span> <span class="n">xb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">sb</span> <span class="o">=</span> <span class="n">sb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">yb</span> <span class="o">=</span> <span class="n">yb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
             <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
-            <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">),</span> <span class="n">yb</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">,</span> <span class="n">sb</span><span class="p">),</span> <span class="n">yb</span><span class="p">)</span>
             <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">clip_grad_norm_</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="mf">1.0</span><span class="p">)</span>
             <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
-            <span class="n">train_loss</span> <span class="o">+=</span> <span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-        <span class="n">train_loss</span> <span class="o">/=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_loader</span><span class="p">)</span>
-        
-        <span class="c1"># Val</span>
+
         <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-        <span class="n">val_loss</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">val_loss</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">val_loader</span><span class="p">:</span>
-                <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="o">=</span> <span class="n">xb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">),</span> <span class="n">yb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">)</span>
-                <span class="n">val_loss</span> <span class="o">+=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">),</span> <span class="n">yb</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-        <span class="n">val_loss</span> <span class="o">/=</span> <span class="nb">len</span><span class="p">(</span><span class="n">val_loader</span><span class="p">)</span>
-        
-        <span class="n">train_losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">train_loss</span><span class="p">)</span>
-        <span class="n">val_losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val_loss</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">sb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">val_loader</span><span class="p">:</span>
+                <span class="n">xb</span> <span class="o">=</span> <span class="n">xb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+                <span class="n">sb</span> <span class="o">=</span> <span class="n">sb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+                <span class="n">yb</span> <span class="o">=</span> <span class="n">yb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+                <span class="n">val_loss</span> <span class="o">+=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">,</span> <span class="n">sb</span><span class="p">),</span> <span class="n">yb</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">val_loss</span> <span class="o">/=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">val_loader</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">val_loss</span><span class="p">)</span>
-        
+
         <span class="k">if</span> <span class="n">val_loss</span> <span class="o">&lt;</span> <span class="n">best_val</span><span class="p">:</span>
             <span class="n">best_val</span> <span class="o">=</span> <span class="n">val_loss</span>
             <span class="n">best_state</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
             <span class="n">patience_counter</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">patience_counter</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="n">patience_counter</span> <span class="o">&gt;=</span> <span class="n">config</span><span class="o">.</span><span class="n">PATIENCE</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">patience_counter</span> <span class="o">&gt;=</span> <span class="n">patience</span><span class="p">:</span>
                 <span class="k">break</span>
-    
-    <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">best_state</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">train_losses</span><span class="p">,</span> <span class="n">val_losses</span>
+
+    <span class="k">if</span> <span class="n">best_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">best_state</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">best_val</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">loader</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
     <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
     <span class="n">preds</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-        <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
-            <span class="n">preds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">))</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">preds</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">sb</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+            <span class="n">preds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">sb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">))</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">preds</span><span class="p">)</span> <span class="k">if</span> <span class="n">preds</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
 
 
 <span class="c1"># ==========================================================</span>
-<span class="c1"># Main Pipeline</span>
+<span class="c1"># Main</span>
 <span class="c1"># ==========================================================</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"🌽 Maize Yield Forecasting in Nigeria"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"🌽 Maize Yield Forecasting — Version B (with lag features)"</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🔥 Device: </span><span class="si">{</span><span class="n">Config</span><span class="o">.</span><span class="n">DEVICE</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    
-    <span class="c1"># Load data</span>
+
     <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"maize_yearly_analysis.csv"</span><span class="p">)</span>
     <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="n">Config</span><span class="o">.</span><span class="n">STATE_COL</span><span class="p">,</span> <span class="s1">'year'</span><span class="p">])</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">📊 Data: </span><span class="si">{</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> | States: </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="n">Config</span><span class="o">.</span><span class="n">STATE_COL</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    
-    <span class="c1"># Create sequences</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">add_lag_features</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">TARGET_COL</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">STATE_COL</span><span class="p">,</span> <span class="n">lags</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">📊 Data after lags: </span><span class="si">{</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> | States: </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="n">Config</span><span class="o">.</span><span class="n">STATE_COL</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
     <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">states</span> <span class="o">=</span> <span class="n">create_sequences</span><span class="p">(</span>
-        <span class="n">df</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">FEATURE_COLS</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">TARGET_COL</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">STATE_COL</span><span class="p">,</span>
-        <span class="n">Config</span><span class="o">.</span><span class="n">SEQ_LENGTH</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">PRED_LENGTH</span>
-    <span class="p">)</span>
+        <span class="n">df</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">ALL_FEATURES</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">TARGET_COL</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">STATE_COL</span><span class="p">,</span>
+        <span class="n">Config</span><span class="o">.</span><span class="n">SEQ_LENGTH</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">PRED_LENGTH</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🔧 Sequences: X=</span><span class="si">{</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, y=</span><span class="si">{</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    
-    <span class="c1"># Split</span>
-    <span class="n">train_idx</span><span class="p">,</span> <span class="n">test_idx</span> <span class="o">=</span> <span class="n">walk_forward_split</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">test_years</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✂️  Train: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">train_idx</span><span class="p">)</span><span class="si">}</span><span class="s2"> | Test: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">test_idx</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    
-    <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">train_idx</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">train_idx</span><span class="p">]</span>
-    <span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">test_idx</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">test_idx</span><span class="p">]</span>
-    
-    <span class="c1"># Normalize</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🧾 Features used: </span><span class="si">{</span><span class="n">Config</span><span class="o">.</span><span class="n">ALL_FEATURES</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">train_idx</span><span class="p">,</span> <span class="n">val_idx</span><span class="p">,</span> <span class="n">test_idx</span> <span class="o">=</span> <span class="n">walk_forward_split_3way</span><span class="p">(</span>
+        <span class="n">states</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">VAL_YEARS</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">TEST_YEARS</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✂️  Train: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">train_idx</span><span class="p">)</span><span class="si">}</span><span class="s2"> | Val: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">val_idx</span><span class="p">)</span><span class="si">}</span><span class="s2"> | Test: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">test_idx</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">s_train</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">train_idx</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">train_idx</span><span class="p">],</span> <span class="n">states</span><span class="p">[</span><span class="n">train_idx</span><span class="p">]</span>
+    <span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="n">s_val</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">val_idx</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">val_idx</span><span class="p">],</span> <span class="n">states</span><span class="p">[</span><span class="n">val_idx</span><span class="p">]</span>
+    <span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">,</span> <span class="n">s_test</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">test_idx</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">test_idx</span><span class="p">],</span> <span class="n">states</span><span class="p">[</span><span class="n">test_idx</span><span class="p">]</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">encoder</span> <span class="o">=</span> <span class="n">OneHotEncoder</span><span class="p">(</span><span class="n">sparse_output</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">handle_unknown</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+        <span class="n">encoder</span> <span class="o">=</span> <span class="n">OneHotEncoder</span><span class="p">(</span><span class="n">sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">handle_unknown</span><span class="o">=</span><span class="s1">'ignore'</span><span class="p">)</span>
+    <span class="n">s_train_oh</span> <span class="o">=</span> <span class="n">encoder</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">s_train</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">s_val_oh</span> <span class="o">=</span> <span class="n">encoder</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">s_val</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">s_test_oh</span> <span class="o">=</span> <span class="n">encoder</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">s_test</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">num_states</span> <span class="o">=</span> <span class="n">s_train_oh</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"🏷️  State one-hot dim: </span><span class="si">{</span><span class="n">num_states</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">n_feat</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">ALL_FEATURES</span><span class="p">)</span>
+    <span class="n">n_lag</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">LAG_COLS</span><span class="p">)</span>
+    <span class="n">n_base</span> <span class="o">=</span> <span class="n">n_feat</span> <span class="o">-</span> <span class="n">n_lag</span>
+
     <span class="n">scaler_X</span> <span class="o">=</span> <span class="n">StandardScaler</span><span class="p">()</span>
-    <span class="n">n_features</span> <span class="o">=</span> <span class="n">X_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">X_train_scaled</span> <span class="o">=</span> <span class="n">scaler_X</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
-        <span class="n">X_train</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_features</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">X_train</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-    <span class="n">X_test_scaled</span> <span class="o">=</span> <span class="n">scaler_X</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span>
-        <span class="n">X_test</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_features</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">X_test</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-    
-    <span class="n">scaler_y</span> <span class="o">=</span> <span class="n">StandardScaler</span><span class="p">()</span>
-    <span class="n">y_train_scaled</span> <span class="o">=</span> <span class="n">scaler_y</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">y_train</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-    <span class="n">y_test_scaled</span> <span class="o">=</span> <span class="n">scaler_y</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">y_test</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-    
-    <span class="c1"># Dataloaders</span>
-    <span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
-        <span class="n">MaizeDataset</span><span class="p">(</span><span class="n">X_train_scaled</span><span class="p">,</span> <span class="n">y_train_scaled</span><span class="p">),</span>
-        <span class="n">batch_size</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span>
-    <span class="p">)</span>
-    <span class="n">test_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
-        <span class="n">MaizeDataset</span><span class="p">(</span><span class="n">X_test_scaled</span><span class="p">,</span> <span class="n">y_test_scaled</span><span class="p">),</span>
-        <span class="n">batch_size</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span>
-    <span class="p">)</span>
-    
-    <span class="c1"># Train models</span>
+    <span class="n">X_train_scaled</span> <span class="o">=</span> <span class="n">X_train</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">X_val_scaled</span> <span class="o">=</span> <span class="n">X_val</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">X_test_scaled</span> <span class="o">=</span> <span class="n">X_test</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="n">X_train_scaled</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span><span class="n">n_base</span><span class="p">]</span> <span class="o">=</span> <span class="n">scaler_X</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span>
+        <span class="n">X_train</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span><span class="n">n_base</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_base</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">X_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_base</span><span class="p">)</span>
+    <span class="n">X_val_scaled</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span><span class="n">n_base</span><span class="p">]</span> <span class="o">=</span> <span class="n">scaler_X</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span>
+        <span class="n">X_val</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span><span class="n">n_base</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_base</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">X_val</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_base</span><span class="p">)</span>
+    <span class="n">X_test_scaled</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span><span class="n">n_base</span><span class="p">]</span> <span class="o">=</span> <span class="n">scaler_X</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span>
+        <span class="n">X_test</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span><span class="n">n_base</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_base</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">X_test</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_base</span><span class="p">)</span>
+
+    <span class="n">y_train_scaled</span> <span class="o">=</span> <span class="n">y_train</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">y_val_scaled</span> <span class="o">=</span> <span class="n">y_val</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
     <span class="n">input_size</span> <span class="o">=</span> <span class="n">X_train_scaled</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">models_dict</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s1">'LSTM'</span><span class="p">:</span> <span class="n">LSTMModel</span><span class="p">(</span><span class="n">input_size</span><span class="p">),</span>
-        <span class="s1">'GRU'</span><span class="p">:</span> <span class="n">GRUModel</span><span class="p">(</span><span class="n">input_size</span><span class="p">),</span>
-        <span class="s1">'Bi-LSTM + Attn'</span><span class="p">:</span> <span class="n">BiLSTMAttention</span><span class="p">(</span><span class="n">input_size</span><span class="p">),</span>
-        <span class="s1">'TCN'</span><span class="p">:</span> <span class="n">TCNModel</span><span class="p">(</span><span class="n">input_size</span><span class="p">),</span>
+
+    <span class="n">DL_SPACE</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">'hidden_size'</span><span class="p">:</span> <span class="p">[</span><span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span>
+        <span class="s1">'num_layers'</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+        <span class="s1">'dropout'</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">],</span>
+        <span class="s1">'lr'</span><span class="p">:</span> <span class="p">[</span><span class="mf">1e-3</span><span class="p">,</span> <span class="mf">5e-4</span><span class="p">],</span>
     <span class="p">}</span>
-    
-    <span class="n">trained_models</span><span class="p">,</span> <span class="n">training_histories</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">models_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🎯 Training </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
-        <span class="n">trained</span><span class="p">,</span> <span class="n">tr_loss</span><span class="p">,</span> <span class="n">val_loss</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> 
-                                                  <span class="n">test_loader</span><span class="p">,</span> <span class="n">Config</span><span class="p">)</span>
-        <span class="n">trained_models</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">trained</span>
-        <span class="n">training_histories</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">tr_loss</span><span class="p">,</span> <span class="n">val_loss</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   ✅ Best val loss: </span><span class="si">{</span><span class="nb">min</span><span class="p">(</span><span class="n">val_loss</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    
-    <span class="c1"># Baselines</span>
+    <span class="n">dl_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">DL_SPACE</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">model_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'LSTM'</span><span class="p">,</span> <span class="s1">'GRU'</span><span class="p">,</span> <span class="s1">'Bi-LSTM + Attn'</span><span class="p">,</span> <span class="s1">'TCN'</span><span class="p">]</span>
+    <span class="n">best_dl_params</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">model_names</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔎 Tuning </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+        <span class="n">best_val_loss</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'inf'</span><span class="p">)</span>
+        <span class="n">best_params</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">N_TRIALS_DL</span><span class="p">):</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">DL_SPACE</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">dl_keys</span><span class="p">}</span>
+            <span class="n">set_seed</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">SEED</span> <span class="o">+</span> <span class="n">trial</span><span class="p">)</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">build_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+            <span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">MaizeDataset</span><span class="p">(</span><span class="n">X_train_scaled</span><span class="p">,</span> <span class="n">y_train_scaled</span><span class="p">,</span> <span class="n">s_train_oh</span><span class="p">),</span>
+                <span class="n">batch_size</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">val_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+                <span class="n">MaizeDataset</span><span class="p">(</span><span class="n">X_val_scaled</span><span class="p">,</span> <span class="n">y_val_scaled</span><span class="p">,</span> <span class="n">s_val_oh</span><span class="p">),</span>
+                <span class="n">batch_size</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">vl</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">,</span>
+                                <span class="n">Config</span><span class="o">.</span><span class="n">EPOCHS</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">PATIENCE</span><span class="p">,</span>
+                                <span class="n">params</span><span class="p">[</span><span class="s1">'lr'</span><span class="p">],</span> <span class="n">Config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   trial </span><span class="si">{</span><span class="n">trial</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">Config</span><span class="o">.</span><span class="n">N_TRIALS_DL</span><span class="si">}</span><span class="s2">: "</span>
+                  <span class="sa">f</span><span class="s2">"val_loss=</span><span class="si">{</span><span class="n">vl</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> | params=</span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">vl</span> <span class="o">&lt;</span> <span class="n">best_val_loss</span><span class="p">:</span>
+                <span class="n">best_val_loss</span> <span class="o">=</span> <span class="n">vl</span>
+                <span class="n">best_params</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   ✅ Best </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: val_loss=</span><span class="si">{</span><span class="n">best_val_loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">best_params</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">best_dl_params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_params</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔁 Retraining best DL models on train + val..."</span><span class="p">)</span>
+    <span class="n">X_trainval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">X_train_scaled</span><span class="p">,</span> <span class="n">X_val_scaled</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">y_trainval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">y_train_scaled</span><span class="p">,</span> <span class="n">y_val_scaled</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">s_trainval_oh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">s_train_oh</span><span class="p">,</span> <span class="n">s_val_oh</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">cut</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_trainval</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.85</span><span class="p">)</span>
+    <span class="n">tr_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">MaizeDataset</span><span class="p">(</span><span class="n">X_trainval</span><span class="p">[:</span><span class="n">cut</span><span class="p">],</span> <span class="n">y_trainval</span><span class="p">[:</span><span class="n">cut</span><span class="p">],</span> <span class="n">s_trainval_oh</span><span class="p">[:</span><span class="n">cut</span><span class="p">]),</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">vs_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">MaizeDataset</span><span class="p">(</span><span class="n">X_trainval</span><span class="p">[</span><span class="n">cut</span><span class="p">:],</span> <span class="n">y_trainval</span><span class="p">[</span><span class="n">cut</span><span class="p">:],</span> <span class="n">s_trainval_oh</span><span class="p">[</span><span class="n">cut</span><span class="p">:]),</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">final_dl_models</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">model_names</span><span class="p">:</span>
+        <span class="n">set_seed</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">SEED</span><span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">build_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">num_states</span><span class="p">,</span> <span class="n">best_dl_params</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+        <span class="n">model</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">tr_loader</span><span class="p">,</span> <span class="n">vs_loader</span><span class="p">,</span>
+                               <span class="n">Config</span><span class="o">.</span><span class="n">EPOCHS</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">PATIENCE</span><span class="p">,</span>
+                               <span class="n">best_dl_params</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="s1">'lr'</span><span class="p">],</span> <span class="n">Config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">)</span>
+        <span class="n">final_dl_models</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🔎 Tuning Random Forest..."</span><span class="p">)</span>
+    <span class="n">X_train_rf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">X_train_scaled</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_train_scaled</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">s_train_oh</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">X_val_rf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">X_val_scaled</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_val_scaled</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">s_val_oh</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">X_test_rf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">X_test_scaled</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_test_scaled</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">s_test_oh</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">RF_SPACE</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">'n_estimators'</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">],</span>
+        <span class="s1">'max_depth'</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="s1">'min_samples_leaf'</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
+    <span class="p">}</span>
+    <span class="n">best_rf_mse</span><span class="p">,</span> <span class="n">best_rf_params</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'inf'</span><span class="p">),</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Config</span><span class="o">.</span><span class="n">N_TRIALS_RF</span><span class="p">):</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">RF_SPACE</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">RF_SPACE</span><span class="p">}</span>
+        <span class="n">rf</span> <span class="o">=</span> <span class="n">RandomForestRegressor</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">SEED</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">rf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train_rf</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+        <span class="n">val_mse</span> <span class="o">=</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_val</span><span class="p">,</span> <span class="n">rf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_val_rf</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   trial </span><span class="si">{</span><span class="n">trial</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">Config</span><span class="o">.</span><span class="n">N_TRIALS_RF</span><span class="si">}</span><span class="s2">: "</span>
+              <span class="sa">f</span><span class="s2">"val_mse=</span><span class="si">{</span><span class="n">val_mse</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> | params=</span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">val_mse</span> <span class="o">&lt;</span> <span class="n">best_rf_mse</span><span class="p">:</span>
+            <span class="n">best_rf_mse</span> <span class="o">=</span> <span class="n">val_mse</span>
+            <span class="n">best_rf_params</span> <span class="o">=</span> <span class="n">params</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   ✅ Best RF: val_mse=</span><span class="si">{</span><span class="n">best_rf_mse</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">best_rf_params</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">X_trainval_rf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">X_train_rf</span><span class="p">,</span> <span class="n">X_val_rf</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">y_trainval_raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">y_train</span><span class="p">,</span> <span class="n">y_val</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">rf_final</span> <span class="o">=</span> <span class="n">RandomForestRegressor</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">SEED</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">best_rf_params</span><span class="p">)</span>
+    <span class="n">rf_final</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_trainval_rf</span><span class="p">,</span> <span class="n">y_trainval_raw</span><span class="p">)</span>
+    <span class="n">rf_preds</span> <span class="o">=</span> <span class="n">rf_final</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test_rf</span><span class="p">)</span>
+
     <span class="n">persistence_preds</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">[</span><span class="n">test_idx</span><span class="p">]:</span>
-        <span class="n">state_train_ys</span> <span class="o">=</span> <span class="n">y_train</span><span class="p">[</span><span class="n">states</span><span class="p">[</span><span class="n">train_idx</span><span class="p">]</span> <span class="o">==</span> <span class="n">state</span><span class="p">]</span>
-        <span class="n">persistence_preds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state_train_ys</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">state_train_ys</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> 
-                                  <span class="k">else</span> <span class="n">y_train</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+    <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">s_test</span><span class="p">:</span>
+        <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">y_train</span><span class="p">[</span><span class="n">s_train</span> <span class="o">==</span> <span class="n">state</span><span class="p">],</span> <span class="n">y_val</span><span class="p">[</span><span class="n">s_val</span> <span class="o">==</span> <span class="n">state</span><span class="p">]])</span>
+        <span class="n">persistence_preds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ys</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">y_trainval_raw</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
     <span class="n">persistence_preds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">persistence_preds</span><span class="p">)</span>
-    
-    <span class="n">rf</span> <span class="o">=</span> <span class="n">RandomForestRegressor</span><span class="p">(</span><span class="n">n_estimators</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> 
-                                <span class="n">random_state</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">SEED</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">rf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train_scaled</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_train_scaled</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">y_train_scaled</span><span class="p">)</span>
-    <span class="n">rf_preds</span> <span class="o">=</span> <span class="n">scaler_y</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span>
-        <span class="n">rf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test_scaled</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_test_scaled</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-    
-    <span class="c1"># Evaluate</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="s1">'name'</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
@@ -8134,42 +8225,41 @@ a.anchor-link {
             <span class="s1">'RMSE'</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)),</span>
             <span class="s1">'MAPE'</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="n">y_true</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">y_true</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">)))</span> <span class="o">*</span> <span class="mi">100</span>
         <span class="p">}</span>
-    
+
+    <span class="n">test_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">MaizeDataset</span><span class="p">(</span><span class="n">X_test_scaled</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_test_scaled</span><span class="p">)),</span> <span class="n">s_test_oh</span><span class="p">),</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">Config</span><span class="o">.</span><span class="n">BATCH_SIZE</span><span class="p">,</span><span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
     <span class="n">results</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">evaluate</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">persistence_preds</span><span class="p">,</span> <span class="s2">"🌱 Persistence Baseline"</span><span class="p">),</span>
-        <span class="n">evaluate</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">rf_preds</span><span class="p">,</span> <span class="s2">"🌲 Random Forest"</span><span class="p">),</span>
+        <span class="n">evaluate</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">rf_preds</span><span class="p">,</span> <span class="s2">"🌲 Random Forest (tuned)"</span><span class="p">),</span>
     <span class="p">]</span>
-    
+
     <span class="n">dl_preds</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">trained_models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="n">preds</span> <span class="o">=</span> <span class="n">scaler_y</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span>
-            <span class="n">predict</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">test_loader</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">final_dl_models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">preds</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">test_loader</span><span class="p">,</span> <span class="n">Config</span><span class="o">.</span><span class="n">DEVICE</span><span class="p">)</span>
         <span class="n">dl_preds</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">preds</span>
-        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">evaluate</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">preds</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"🧠 </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
-    
+        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">evaluate</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">preds</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"🧠 </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> (tuned)"</span><span class="p">))</span>
+
     <span class="n">ensemble_preds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dl_preds</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">evaluate</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">ensemble_preds</span><span class="p">,</span> <span class="s2">"🎯 Ensemble (DL avg)"</span><span class="p">))</span>
-    
-    <span class="c1"># Results table</span>
+
     <span class="n">results_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">results</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">'R2'</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="s2">"="</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"🏆 Final Results"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"🏆 Final Results — Version B (with lag features)"</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">results_df</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
-    
-    <span class="n">results_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">'results/metrics.csv'</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    
-    <span class="c1"># Summary</span>
+
+    <span class="n">results_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">'results/metrics_versionB.csv'</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
     <span class="n">best</span> <span class="o">=</span> <span class="n">results_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">persistence_r2</span> <span class="o">=</span> <span class="n">results_df</span><span class="p">[</span>
         <span class="n">results_df</span><span class="p">[</span><span class="s1">'name'</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s1">'Persistence'</span><span class="p">)</span>
     <span class="p">][</span><span class="s1">'R2'</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">🥇 Best model: </span><span class="si">{</span><span class="n">best</span><span class="p">[</span><span class="s1">'name'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"📈 R²: </span><span class="si">{</span><span class="n">best</span><span class="p">[</span><span class="s1">'R2'</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"📉 Improvement over persistence: </span><span class="si">{</span><span class="n">best</span><span class="p">[</span><span class="s1">'R2'</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">persistence_r2</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">✅ Pipeline complete. Results saved to results/"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">✅ Version B done. Results saved to results/metrics_versionB.csv"</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
 
 
@@ -8188,50 +8278,85 @@ a.anchor-link {
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
 <pre>======================================================================
-🌽 Maize Yield Forecasting in Nigeria
+🌽 Maize Yield Forecasting — Version B (with lag features)
 ======================================================================
 🔥 Device: cpu
 
-📊 Data: (771, 23) | States: 37
-🔧 Sequences: X=(586, 5, 6), y=(586,)
-✂️  Train: 475 | Test: 111
+📊 Data after lags: (697, 25) | States: 37
+🔧 Sequences: X=(512, 5, 8), y=(512,)
+🧾 Features used: ['LST', 'NDVI', 'Precipitation', 'Temperature', 'year_sin', 'year_cos', 'value_lag1', 'value_lag2']
+✂️  Train: 327 | Val: 74 | Test: 111
+🏷️  State one-hot dim: 37
 
-🎯 Training LSTM...
-   ✅ Best val loss: 0.4915
+🔎 Tuning LSTM...
+   trial 1/5: val_loss=0.0938 | params={'hidden_size': 128, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 2/5: val_loss=0.1070 | params={'hidden_size': 128, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 3/5: val_loss=0.1324 | params={'hidden_size': 32, 'num_layers': 2, 'dropout': 0.3, 'lr': 0.001}
+   trial 4/5: val_loss=0.0966 | params={'hidden_size': 64, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 5/5: val_loss=0.1194 | params={'hidden_size': 64, 'num_layers': 2, 'dropout': 0.2, 'lr': 0.0005}
+   ✅ Best LSTM: val_loss=0.0938 | {'hidden_size': 128, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
 
-🎯 Training GRU...
-   ✅ Best val loss: 0.5036
+🔎 Tuning GRU...
+   trial 1/5: val_loss=0.0889 | params={'hidden_size': 32, 'num_layers': 2, 'dropout': 0.1, 'lr': 0.001}
+   trial 2/5: val_loss=0.0952 | params={'hidden_size': 128, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 3/5: val_loss=0.1243 | params={'hidden_size': 32, 'num_layers': 2, 'dropout': 0.3, 'lr': 0.001}
+   trial 4/5: val_loss=0.1012 | params={'hidden_size': 64, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 5/5: val_loss=0.0852 | params={'hidden_size': 64, 'num_layers': 2, 'dropout': 0.2, 'lr': 0.0005}
+   ✅ Best GRU: val_loss=0.0852 | {'hidden_size': 64, 'num_layers': 2, 'dropout': 0.2, 'lr': 0.0005}
 
-🎯 Training Bi-LSTM + Attn...
-   ✅ Best val loss: 0.4897
+🔎 Tuning Bi-LSTM + Attn...
+   trial 1/5: val_loss=0.1078 | params={'hidden_size': 32, 'num_layers': 2, 'dropout': 0.1, 'lr': 0.001}
+   trial 2/5: val_loss=0.1258 | params={'hidden_size': 128, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 3/5: val_loss=0.1131 | params={'hidden_size': 32, 'num_layers': 2, 'dropout': 0.3, 'lr': 0.001}
+   trial 4/5: val_loss=0.0890 | params={'hidden_size': 64, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 5/5: val_loss=0.1032 | params={'hidden_size': 64, 'num_layers': 2, 'dropout': 0.2, 'lr': 0.0005}
+   ✅ Best Bi-LSTM + Attn: val_loss=0.0890 | {'hidden_size': 64, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
 
-🎯 Training TCN...
-   ✅ Best val loss: 0.6027
+🔎 Tuning TCN...
+   trial 1/5: val_loss=0.1081 | params={'hidden_size': 32, 'num_layers': 2, 'dropout': 0.1, 'lr': 0.001}
+   trial 2/5: val_loss=0.1003 | params={'hidden_size': 128, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 3/5: val_loss=0.1296 | params={'hidden_size': 32, 'num_layers': 2, 'dropout': 0.3, 'lr': 0.001}
+   trial 4/5: val_loss=0.0955 | params={'hidden_size': 64, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+   trial 5/5: val_loss=0.1078 | params={'hidden_size': 64, 'num_layers': 2, 'dropout': 0.2, 'lr': 0.0005}
+   ✅ Best TCN: val_loss=0.0955 | {'hidden_size': 64, 'num_layers': 1, 'dropout': 0.1, 'lr': 0.0005}
+
+🔁 Retraining best DL models on train + val...
+
+🔎 Tuning Random Forest...
+   trial 1/8: val_mse=0.0540 | params={'n_estimators': 400, 'max_depth': 4, 'min_samples_leaf': 1}
+   trial 2/8: val_mse=0.0497 | params={'n_estimators': 400, 'max_depth': 10, 'min_samples_leaf': 1}
+   trial 3/8: val_mse=0.0574 | params={'n_estimators': 100, 'max_depth': 6, 'min_samples_leaf': 4}
+   trial 4/8: val_mse=0.0543 | params={'n_estimators': 100, 'max_depth': 4, 'min_samples_leaf': 4}
+   trial 5/8: val_mse=0.0511 | params={'n_estimators': 200, 'max_depth': 4, 'min_samples_leaf': 1}
+   trial 6/8: val_mse=0.0658 | params={'n_estimators': 100, 'max_depth': 6, 'min_samples_leaf': 1}
+   trial 7/8: val_mse=0.0556 | params={'n_estimators': 400, 'max_depth': 4, 'min_samples_leaf': 4}
+   trial 8/8: val_mse=0.0612 | params={'n_estimators': 100, 'max_depth': None, 'min_samples_leaf': 1}
+   ✅ Best RF: val_mse=0.0497 | {'n_estimators': 400, 'max_depth': 10, 'min_samples_leaf': 1}
 
 ======================================================================
-🏆 Final Results
+🏆 Final Results — Version B (with lag features)
 ======================================================================
-                  name        R2      MAE     RMSE      MAPE
-🌱 Persistence Baseline  0.731938 0.155425 0.232287  7.095847
-      🧠 Bi-LSTM + Attn -0.010405 0.355102 0.450977 17.807314
-                🧠 LSTM -0.013863 0.356719 0.451748 17.964194
-                 🧠 GRU -0.043297 0.360541 0.458259 17.713185
-   🎯 Ensemble (DL avg) -0.056405 0.363422 0.461128 17.793298
-       🌲 Random Forest -0.171446 0.384195 0.485588 18.069164
-                 🧠 TCN -0.255021 0.397497 0.502611 18.502612
+                    name        R2      MAE     RMSE      MAPE
+  🌱 Persistence Baseline  0.731938 0.155425 0.232287  7.095847
+ 🌲 Random Forest (tuned)  0.579328 0.225805 0.290990 10.801514
+🧠 Bi-LSTM + Attn (tuned)  0.534337 0.232150 0.306156 11.869942
+          🧠 LSTM (tuned)  0.407773 0.270524 0.345264 14.533253
+     🎯 Ensemble (DL avg)  0.367046 0.279028 0.356938 13.329044
+           🧠 GRU (tuned)  0.251597 0.303394 0.388127 14.682421
+           🧠 TCN (tuned) -0.591909 0.468216 0.566064 20.479391
 
 🥇 Best model: 🌱 Persistence Baseline
 📈 R²: 0.7319
 📉 Improvement over persistence: +0.0000
 
-✅ Pipeline complete. Results saved to results/
+✅ Version B done. Results saved to results/metrics_versionB.csv
 ======================================================================
 </pre>
 </div>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=8d462605-3aee-448d-b1c8-67e881367cbf">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=004ed02f-184b-4b30-9d00-0c9032345140">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>

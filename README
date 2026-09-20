@@ -8,29 +8,50 @@ This project evaluates whether deep learning models can outperform simple and co
 
 Models Evaluated
 
-Persistence Baseline
-Random Forest
-LSTM
-GRU
-Bi-LSTM + Attention
-Temporal Convolutional Network (TCN)
-Deep Learning Ensemble
+Persistence Baseline (naive forecast, state-aware), Random Forest (state-aware, hyperparameter-tuned), LSTM, GRU, Bi-LSTM + Attention, Temporal Convolutional Network (TCN), and a Deep Learning Ensemble (average of DL predictions).
+
+All models are trained with walk-forward validation and hyperparameter tuning (random search over 5 trials for DL models, 8 trials for Random Forest). Early stopping is performed on a held-out validation set (last 2 years per state), and the test set is the last 3 years per state.
 
 Data
 
-The project uses HarvestStat Africa subnational maize yield statistics together with environmental predictors, including:
-NDVI
-Land Surface Temperature (LST)
-Precipitation
-Temperature
+The project uses HarvestStat Africa subnational maize yield statistics together with environmental predictors, including NDVI, Land Surface Temperature (LST), Precipitation, Temperature, cyclical year encodings (year_sin, year_cos), the state identifier (admin_1, one-hot encoded), and lagged target features (value_lag1, value_lag2).
 
-Key Result
+Key Results
 
-The Persistence baseline achieved the highest predictive performance, with:
-R² = 0.73
-It outperformed all tested machine-learning and deep-learning models on the held-out test data.
-This result demonstrates the importance of evaluating complex forecasting models against strong and simple baselines, particularly when working with limited temporal data.
-Technologies: Python(Pandas / NumPy / Scikit-learn / PyTorch / GeoPandas / Matplotlib)
+Persistence Baseline achieved R² = 0.7319, MAE = 0.155, RMSE = 0.232, MAPE = 7.10%.
+
+Random Forest (tuned) achieved R² = 0.5793, MAE = 0.226, RMSE = 0.291, MAPE = 10.80%.
+
+Bi-LSTM + Attention (tuned) achieved R² = 0.5343, MAE = 0.232, RMSE = 0.306, MAPE = 11.87%.
+
+LSTM (tuned) achieved R² = 0.4078, MAE = 0.271, RMSE = 0.345, MAPE = 14.53%.
+
+Ensemble (DL avg) achieved R² = 0.3670, MAE = 0.279, RMSE = 0.357, MAPE = 13.33%.
+
+GRU (tuned) achieved R² = 0.2516, MAE = 0.303, RMSE = 0.388, MAPE = 14.68%.
+
+TCN (tuned) achieved R² = -0.5919, MAE = 0.468, RMSE = 0.566, MAPE = 20.48%.
+
+Main Findings
+
+1. State identity is essential.
+Without state information, all deep-learning models and Random Forest produced negative R². Adding one-hot state encoding raised Random Forest from R² = -0.17 to R² = +0.51.
+
+2. Lagged target features are the missing link.
+Adding value_lag1 and value_lag2 lifted every deep-learning model from negative to positive R². Bi-LSTM + Attention improved from R² = -0.22 to R² = +0.53.
+
+3. The Persistence baseline remains the strongest model, with R² = 0.73. This result demonstrates the importance of evaluating complex forecasting models against strong and simple baselines, particularly when working with limited annual data and high autocorrelation.
+
+4. Complexity does not guarantee accuracy.
+Despite hyperparameter tuning, walk-forward validation, and state encoding, deep-learning models did not outperform a well-designed naive baseline.
+
+Reproducibility
+
+Fixed random seed (SEED = 42) across NumPy, Python random, and PyTorch. Three-way walk-forward split (train / validation / test per state) with no leakage. Hyperparameter search performed on the validation set; final models retrained on train + validation. Test set kept untouched until final evaluation.
+
+Technologies
+
+Python (Pandas / NumPy / Scikit-learn / PyTorch / Matplotlib)
 
 Data Citation
 
