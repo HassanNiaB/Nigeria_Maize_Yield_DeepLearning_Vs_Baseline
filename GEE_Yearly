@@ -1,0 +1,88 @@
+// ============================================================
+// Yearly Environmental Data Extraction for Nigerian States
+// ============================================================
+// Description: Extracts annual mean NDVI, LST, Precipitation,
+//              and Temperature for Nigerian states (2000-2023)
+// Data Sources:
+//   - NDVI:          MODIS/061/MOD13Q1
+//   - LST:           MODIS/061/MOD11A2
+//   - Precipitation: UCSB-CHG/CHIRPS/DAILY
+//   - Temperature:   ECMWF/ERA5_LAND/MONTHLY_AGGR
+// Boundary Source:  USDOS/LSIB_SIMPLE/2017
+// ============================================================
+
+// ---------- 1. Define Nigeria Boundary ----------
+// Using Natural Earth dataset (most reliable option)
+var nigeria = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017')
+    .filter(ee.Filter.eq('country_na', 'Nigeria'));
+
+// Print number of features for verification
+print('Number of Nigerian features:', nigeria.size());
+
+// ---------- 2. Define Time Range ----------
+var years = ee.List.sequence(2000, 2023);
+
+// ---------- 3. Function: Extract Yearly Data ----------
+var extractYearlyData = function(year) {
+  var startDate = ee.Date.fromYMD(year, 1, 1);
+  var endDate = startDate.advance(1, 'year');
+
+  // Annual NDVI
+  var ndvi = ee.ImageCollection('MODIS/061/MOD13Q1')
+    .filterDate(startDate, endDate)
+    .select('NDVI')
+    .mean()
+    .multiply(0.0001)
+    .rename('NDVI');
+
+  // Annual LST
+  var lst = ee.ImageCollection('MODIS/061/MOD11A2')
+    .filterDate(startDate, endDate)
+    .select('LST_Day_1km')
+    .mean()
+    .multiply(0.02)
+    .rename('LST');
+
+  // Annual Precipitation
+  var precip = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+    .filterDate(startDate, endDate)
+    .select('precipitation')
+    .sum()
+    .rename('Precipitation');
+
+  // Annual Air Temperature
+  var temp = ee.ImageCollection('ECMWF/ERA5_LAND/MONTHLY_AGGR')
+    .filterDate(startDate, endDate)
+    .select('temperature_2m')
+    .mean()
+    .subtract(273.15)
+    .rename('Temperature');
+
+  // Combine all bands into a single image
+  var combinedImage = ee.Image.cat([ndvi, lst, precip, temp]);
+
+  // Reduce to state-level averages
+  var reduced = combinedImage.reduceRegions({
+    collection: nigeria,
+    reducer: ee.Reducer.mean(),
+    scale: 5000
+  });
+
+  // Attach year metadata to each feature
+  return reduced.map(function(feature) {
+    return feature.set('year', year);
+  });
+};
+
+// ---------- 4. Apply Function Across All Years ----------
+var allYearsData = ee.FeatureCollection(years.map(extractYearlyData)).flatten();
+
+print('Total number of records:', allYearsData.size());
+
+// ---------- 5. Export to Google Drive ----------
+Export.table.toDrive({
+  collection: allYearsData,
+  description: 'Nigeria_Yearly_Data',
+  folder: 'GEE_Exports',
+  fileFormat: 'CSV'
+});
